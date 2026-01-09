@@ -6,10 +6,10 @@
 @c Uncomment the following line for two-sided printing.
 @c @setchapternewpage odd
 @macro lmversion
-1.8.3
+1.9.0alpha
 @end macro
 @macro lmdate
-August 2006
+January 2026
 @end macro
 @comment %**end of header (This is for running Texinfo on a region.)
 
@@ -29,7 +29,8 @@ August 2006
 @sp 4
 Copyright @copyright{} 1991, 1992, 1993, 1995, 1996 by Pavel Curtis.
 Copyright @copyright{} 1997 by Erik Ostrom.
-Copyright @copyright{} 2004 by Roger F. Crew.
+Copyright @copyright{} 2004, 2007, 2010 by Roger F. Crew.
+Copyright @copyright{} 2026 by lisdude
 @end format
 
 Permission is granted to make and distribute verbatim copies of this manual
@@ -69,7 +70,8 @@ author.
 @vskip 0pt plus 1filll
 Copyright @copyright{} 1991, 1992, 1993, 1995, 1996 by Pavel Curtis.@*
 Copyright @copyright{} 1997 by Erik Ostrom.@*
-Copyright @copyright{} 2004 by Roger F. Crew.
+Copyright @copyright{} 2004, 2007, 2010 by Roger F. Crew.
+Copyright @copyright{} 2026 by lisdude
 
 Copies of the electronic source for this document can be obtained using
 anonymous FTP on the Internet.  At the site @code{ftp.lambda.moo.mud.org} the
@@ -194,8 +196,8 @@ is one particular LambdaMOO database, created every so often by extracting the
 @quotation Note
 The original LambdaMOO resides on the host
 @code{lambda.moo.mud.org} on port 8888.  Feel free to drop by!  A copy of the most
-recent release of the LambdaCore database can be obtained by anonymous FTP from
-host @code{ftp.lambda.moo.mud.org} in the directory @code{pub/MOO}.
+recent release of the LambdaCore database can be obtained from
+@code{http://ftp.lambda.moo.mud.org/pub/MOO/} (@code{LambdaCore-latest.db.gz}).
 @end quotation
 
 @menu
@@ -222,15 +224,22 @@ objects (in the virtual reality)
 errors (arising during program execution)
 @item
 lists (of all of the above, including lists)
+@item
+waifs (lightweight objects, available only if the waifs extension is enabled)
 @end itemize
 
-MOO supports the integers from @minus{}2^31 (that is, negative two to the power
-of 31) up to 2^31 @minus{} 1 (one less than two to the power of 31); that's
-from @minus{}2147483648 to 2147483647, enough for most purposes.  In MOO
-programs, integers are written just as you see them here, an optional minus
-sign followed by a non-empty sequence of decimal digits.  In particular, you
-may not put commas, periods, or spaces in the middle of large integers, as we
-sometimes do in English and other natural languages (e.g., `2,147,483,647').
+The range of integers supported by MOO depends on how the server was configured
+at compile time.  As of version 1.9.0alpha, the server administrator can choose between
+16-bit, 32-bit, or 64-bit integers using the @code{INT_TYPE_BITSIZE} option.  The
+default is 64-bit integers if the platform supports them, otherwise 32-bit.  With
+64-bit integers, the range is from @minus{}2^63 to 2^63 @minus{} 1 (that's from
+@minus{}9223372036854775808 to 9223372036854775807).  With 32-bit integers (the size
+used in versions prior to 1.9.0alpha), the range is @minus{}2^31 to 2^31 @minus{} 1
+(from @minus{}2147483648 to 2147483647).  In MOO programs, integers are written just as
+you see them here, an optional minus sign followed by a non-empty sequence of decimal
+digits.  In particular, you may not put commas, periods, or spaces in the middle of
+large integers, as we sometimes do in English and other natural languages
+(e.g., `2,147,483,647').
 
 Real numbers in MOO are represented as they are in almost all other programming
 languages, using so-called @dfn{floating-point} numbers.  These have certain
@@ -250,11 +259,18 @@ All of these examples mean the same number.  The third of these, as an example
 of scientific notation, should be read ``3.25 times 10 to the power of 2''.
 
 @quotation
-@emph{Fine points:} The MOO represents floating-point numbers using the local
-meaning of the C-language @code{double} type, which is almost always equivalent
-to IEEE 754 double precision floating point.  If so, then the smallest positive
-floating-point number is no larger than @code{2.2250738585072014e-308} and the
-largest floating-point number is @code{1.7976931348623157e+308}.
+@emph{Fine points:} As of version 1.9.0alpha, the MOO server administrator can choose
+the underlying floating-point type using the @code{FLOATING_TYPE} option.  The
+choices are @code{float} (single precision), @code{double} (double precision,
+the default and the type used in versions prior to 1.9.0alpha), @code{long double}
+(extended precision), or @code{__float128} (quadruple precision, requires GNU
+quadmath library).  The range and precision of floating-point numbers depends
+on this choice and the platform.
+
+For the default @code{double} type, which is almost always equivalent to IEEE 754
+double precision floating point, the smallest positive floating-point number is
+no larger than @code{2.2250738585072014e-308} and the largest floating-point
+number is @code{1.7976931348623157e+308}.
 
 IEEE infinities and NaN values are not allowed in MOO.  The error
 @code{E_FLOAT} is raised whenever an infinity would otherwise be computed;
@@ -262,8 +278,11 @@ IEEE infinities and NaN values are not allowed in MOO.  The error
 @code{0.0} is always returned on underflow.
 @end quotation
 
-Character @dfn{strings} are arbitrarily-long sequences of normal, ASCII
-printing characters.  When written as values in a program, strings are
+Character @dfn{strings} are arbitrarily-long sequences of characters.  By default
+(in servers without the Unicode extension enabled), strings are restricted to
+normal ASCII printing characters.  When the Unicode extension is enabled, strings
+may contain most printable Unicode characters, allowing representation of text in
+many languages and scripts.  When written as values in a program, strings are
 enclosed in double-quotes, like this:
 
 @example
@@ -286,9 +305,19 @@ Finally, to include a backslash in a string, double it:
 @end example
 
 @noindent
-MOO strings may not include special ASCII characters like carriage-return,
+MOO strings may not include special control characters like carriage-return,
 line-feed, bell, etc.  The only non-printing characters allowed are spaces and
 tabs.
+
+@quotation
+@emph{Fine point:} The Unicode extension can be enabled at compile time and
+changes which characters are allowed in strings.  Without Unicode, strings are
+restricted to ASCII characters (codepoints 0-127) excluding control characters
+other than tab.  With Unicode enabled, strings may contain most printable
+characters from the full Unicode range.  To check if your server supports Unicode,
+evaluate @code{server_version("features")} and look for @code{"unicode"} in the
+returned list.  See the section on Unicode support for more details.
+@end quotation
 
 @anchor{note-Binary Strings}
 @quotation
@@ -369,6 +398,32 @@ Note that it doesn't matter that we put a line-break in the middle of
 the list.  This is true in general in MOO: anywhere that a space can go,
 a line-break can go, with the same meaning.  The only exception is
 inside character strings, where line-breaks are not allowed.
+
+@dfn{Waifs} are a lightweight alternative to full objects, available only when
+the waifs extension is enabled (check for @code{"waifs"} in
+@code{server_version("features")}).  A waif is like an object in that it has a
+parent object from which it inherits verbs and property values, and it can use
+property and verb call syntax.  However, waifs have several differences:
+
+@itemize @bullet
+@item
+Waifs cannot define their own properties or verbs; they only inherit from their parent.
+@item
+Waifs cannot have descendants (children).
+@item
+Waifs cannot be referenced using object number syntax (like @code{#123}).
+@item
+Waifs are not persistent in the same way objects are; they exist only as values
+in properties or variables.
+@item
+Waifs are reference-counted and automatically garbage-collected when no longer
+referenced.
+@end itemize
+
+@noindent
+Waifs are created using the @code{new_waif()} function and can be used anywhere
+a MOO value can be used.  See the section on the Waifs Extension for full details
+on @code{new_waif()} and waif property behavior.
 
 @node Objects,  , Values, Database
 @comment  node-name,  next,  previous,  up
@@ -1281,6 +1336,40 @@ Note that if the first operand is an integer, then the second operand must also
 be an integer.  If the first operand is a floating-point number, then the
 second operand can be either kind of number.  Although it is legal to raise an
 integer to a negative power, the result is unlikely to be terribly useful.
+
+@quotation
+@emph{Fine point:} If the server was compiled with the @code{BITWISE_OPERATORS}
+option enabled, MOO also supports bitwise operations on integers:
+
+@example
+~X        @r{bitwise complement}
+X .&. Y   @r{bitwise AND}
+X .|. Y   @r{bitwise OR (inclusive)}
+X .^. Y   @r{bitwise XOR (exclusive)}
+X << N    @r{left shift}
+X >> N    @r{arithmetic right shift (sign-extending)}
+X >>> N   @r{logical right shift (zero-extending)}
+@end example
+
+All bitwise operators except @samp{~} (complement) take two integer operands;
+@samp{~} takes one integer operand.  Examples:
+
+@example
+12 .&. 10       @result{}   8       @r{(binary 1100 AND 1010 = 1000)}
+12 .|. 10       @result{}   14      @r{(binary 1100 OR 1010 = 1110)}
+12 .^. 10       @result{}   6       @r{(binary 1100 XOR 1010 = 0110)}
+~5              @result{}   -6      @r{(bitwise complement of 5)}
+3 << 2          @result{}   12      @r{(3 shifted left by 2 bits)}
+12 >> 2         @result{}   3       @r{(12 shifted right by 2 bits)}
+-12 >> 2        @result{}   -3      @r{(sign-extending right shift)}
+-12 >>> 2       @result{}   ...     @r{(large positive number, zero-extending)}
+@end example
+
+Note the use of dots around the AND, OR, and XOR operators to distinguish them
+from other MOO syntax.  The shift operators use the same syntax as in C.
+To check if your server supports bitwise operators, evaluate
+@code{server_version("options/BITWISE_OPERATORS")}.
+@end quotation
 
 @node Comparisons, Truth Values, Arithmetic, Expressions
 @comment  node-name,  next,  previous,  up
@@ -2955,11 +3044,13 @@ section following this one.
 @deftypefun int typeof (@var{value})
 Takes any MOO value and returns an integer representing the type of @var{value}.
 The result is the same as the initial value of one of these built-in variables:
-@code{INT}, @code{FLOAT}, @code{STR}, @code{LIST}, @code{OBJ}, or @code{ERR}.
+@code{INT}, @code{FLOAT}, @code{STR}, @code{LIST}, @code{OBJ}, @code{ERR}, or
+(if the waifs extension is enabled) @code{WAIF}.
 Thus, one usually writes code like this:
 
 @example
 if (typeof(x) == LIST) @dots{}
+if (typeof(x) == WAIF) @dots{}   @r{(only if waifs extension enabled)}
 @end example
 
 @noindent
@@ -3258,7 +3349,7 @@ decode_binary("foo~0D~0A", 1)   @result{}   @{102, 111, 111, 13, 10@}
 Each argument must be an integer between 0 and 255, a string, or a list
 containing only legal arguments for this function.  This function translates
 each integer and string in turn into its binary string equivalent, returning the
-concatenation of all these substrings into a single binary string.  
+concatenation of all these substrings into a single binary string.
 (@xref{note-Binary Strings,,fine point on binary strings}, for a full description of binary strings.)
 
 @example
@@ -3266,6 +3357,92 @@ encode_binary("~foo")                     @result{}   "~7Efoo"
 encode_binary(@{"foo", 10@}, @{"bar", 13@})   @result{}   "foo~0Abar~0D"
 encode_binary("foo", 10, "bar", 13)       @result{}   "foo~0Abar~0D"
 @end example
+@end deftypefun
+
+@deftypefun int ord (str @var{char})
+Returns the integer codepoint value of the first character in @var{char}.  If
+@var{char} is empty, raises @code{E_INVARG}.  This is the inverse of @code{tochar()}.
+
+@example
+ord("A")        @result{}   65
+ord("xyz")      @result{}   120
+ord("")         @error{}    E_INVARG
+@end example
+
+@quotation
+@emph{Fine point:} On servers with Unicode support enabled, @code{ord()} can return
+values greater than 127 for non-ASCII characters.  On servers without Unicode
+support, @code{ord()} will only return values in the range 0-127 for ASCII characters.
+@end quotation
+@end deftypefun
+
+@deftypefun str tochar (int @var{codepoint})
+Returns a single-character string containing the character with the given Unicode
+codepoint value.  On servers without Unicode support, only codepoint values in the
+ASCII range (0-127) are accepted; values outside this range raise @code{E_INVARG}.
+On servers with Unicode support, most valid Unicode codepoints are accepted.  This
+is the inverse of @code{ord()}.
+
+@example
+tochar(65)      @result{}   "A"
+tochar(120)     @result{}   "x"
+tochar(0)       @error{}    E_INVARG   @r{(control characters not allowed)}
+@end example
+@end deftypefun
+
+@deftypefun str charname (str @var{char})
+Returns the Unicode character name for the first character in @var{char}, or the
+empty string if no name is available.  This function is only useful on servers with
+Unicode support enabled.
+
+@example
+charname("A")           @result{}   "LATIN CAPITAL LETTER A"
+charname("!")           @result{}   "EXCLAMATION MARK"
+charname("XYZ")         @result{}   "LATIN CAPITAL LETTER X"
+@end example
+@end deftypefun
+
+@deftypefun list decode_chars (str @var{bytes} [, str @var{encoding} [, @var{fully}]])
+Decodes the string @var{bytes} as a sequence of bytes in the given @var{encoding}
+(default @code{"UTF-8"}) and returns a list of integers and/or strings representing
+the Unicode codepoints.  If @var{fully} is false or omitted, the list contains an
+integer only for each codepoint that cannot appear in a MOO string; all other
+characters are grouped into the longest possible contiguous substrings.  If
+@var{fully} is provided and true, the list contains only integers, one for each
+codepoint.  Raises @code{E_INVARG} if @var{bytes} is not valid for the specified
+encoding.
+
+@example
+decode_chars("Hello")               @result{}   @{"Hello"@}
+decode_chars("Caf\195\169", "UTF-8")    @result{}   @{"Caf\195\169"@}
+@end example
+
+@quotation
+@emph{Fine point:} This function uses the @code{iconv} library to support various
+character encodings beyond UTF-8, including ISO-8859-1, ASCII, and others.  The
+set of available encodings depends on your system's @code{iconv} implementation.
+@end quotation
+@end deftypefun
+
+@deftypefun str encode_chars (list @var{codepoints} [, str @var{encoding}])
+Encodes a list of Unicode codepoint integers (and/or strings) into a binary string
+using the specified @var{encoding} (default @code{"UTF-8"}).  Each element of
+@var{codepoints} must be either an integer representing a Unicode codepoint or a
+string.  Strings are processed character-by-character.  Raises @code{E_INVARG} if
+any codepoint is invalid or cannot be represented in the specified encoding.
+
+@example
+encode_chars(@{72, 101, 108, 108, 111@})        @result{}   "Hello"
+encode_chars(@{67, "af", 233@}, "UTF-8")        @result{}   "Caf\195\169"
+@end example
+
+@quotation
+@emph{Fine point:} Like @code{decode_chars()}, this function uses the @code{iconv}
+library and supports various character encodings.  On servers without Unicode
+support, codepoints outside the ASCII range (0-127) will be converted but cannot
+appear directly in MOO strings, so the result will use binary string (tilde-escaped)
+representation for those bytes.
+@end quotation
 @end deftypefun
 
 @deftypefun list match (str @var{subject}, str @var{pattern} [, @var{case-matters}])
@@ -5051,12 +5228,153 @@ database from the then-current LambdaMOO database, and other similar
 situations.  Its use requires great care.
 @end deftypefun
 
-@node Statistics,  , Administrative, Builtins
+@node Extensions, Statistics, Administrative, Builtins
+@comment  node-name,  next,  previous,  up
+@subsection Extension-Specific Functions
+
+As of version 1.9.0alpha, LambdaMOO supports an extension framework that allows optional
+features to be compiled into the server.  The following functions are only available
+if the corresponding extension has been enabled at compile time.  Use
+@code{server_version("features")} to check which extensions are available on your
+server.
+
+@menu
+* Waifs Extension::     Waif Creation and Management
+* XML Extension::       XML Parsing Functions
+@end menu
+
+@node Waifs Extension, XML Extension, Extensions, Extensions
+@comment  node-name,  next,  previous,  up
+@subsubsection Waif Functions
+
+The waifs extension provides a lightweight object type.  This extension
+is available if @code{"waifs"} appears in the list returned by
+@code{server_version("features")}.
+
+@deftypefun waif new_waif ()
+Creates and returns a new waif with the caller's object as its parent (class).
+The waif inherits all verbs and property values from its parent object.  If called
+from a context where @code{caller()} is not a valid object, raises @code{E_INVARG}.
+
+@example
+w = new_waif();
+typeof(w)               @result{}   WAIF
+w.some_property         @r{Accesses property defined on parent object}
+w:some_verb()           @r{Calls verb defined on parent object}
+@end example
+
+@quotation
+@emph{Fine point:} The parent of a waif cannot be changed after creation.  Waifs
+can access properties and call verbs on their parent just like regular objects,
+but they cannot define new properties or verbs of their own.  Only properties
+whose names begin with a colon (e.g., @code{:name}) on the parent object are
+accessible on individual waif instances.
+@end quotation
+
+@quotation
+@emph{Fine point:} If the @code{WAIF_DICT} option was enabled when the server was
+compiled, waifs can also support indexed access via bracket syntax (@code{w[key]})
+if the parent object defines @code{:_index(key)} and @code{:_set_index(key, value)}
+verbs.  This allows waifs to behave like associative arrays or dictionaries.
+@end quotation
+@end deftypefun
+
+@node XML Extension,  , Waifs Extension, Extensions
+@comment  node-name,  next,  previous,  up
+@subsubsection XML Parsing Functions
+
+The XML extension provides functions for parsing XML documents.  This extension
+is available if @code{"xml"} appears in the list returned by
+@code{server_version("features")}.
+
+@deftypefun list xml_parse_tree (str @var{xml-string})
+Parses @var{xml-string} as an XML document and returns a tree structure representing
+the document.  The tree is represented as a list where each element is either a
+string (for text content) or a list representing an XML element.  XML elements are
+represented as a 4-element list:
+
+@example
+@{@var{tag-name}, @var{attributes}, @var{text}, @var{children}@}
+@end example
+
+@noindent
+where @var{tag-name} is the element name (a string), @var{attributes} is a list of
+@code{@{@var{attr-name}, @var{attr-value}@}} pairs, @var{text} is the direct text
+content of the element (a string, possibly empty), and @var{children} is a list of
+child elements.
+
+Raises @code{E_INVARG} if @var{xml-string} is not well-formed XML.  Raises
+@code{E_QUOTA} if parsing would create a structure that exceeds the server's
+@code{max_list_concat} or @code{max_string_concat} limits.
+
+@example
+xml_parse_tree("<foo>bar</foo>")
+    @result{}  @{"foo", @{@}, "bar", @{@}@}
+xml_parse_tree("<person name='Alice'><age>30</age></person>")
+    @result{}  @{"person", @{@{"name", "Alice"@}@}, "", @{@{"age", @{@}, "30", @{@}@}@}@}
+@end example
+
+@quotation
+@emph{Fine point:} When using @code{xml_parse_document()} instead, text content that
+appears between child elements is preserved as separate string entries in the children
+list, maintaining document order.  With @code{xml_parse_tree()}, all direct text content
+is concatenated into the third element of the list.
+@end quotation
+@end deftypefun
+
+@deftypefun list xml_parse_document (str @var{xml-string})
+Similar to @code{xml_parse_tree()}, but returns a structure that also includes
+XML document metadata such as processing instructions and the document type
+declaration.  The exact format of the return value is subject to change in
+future versions.  Most applications should use @code{xml_parse_tree()} instead.
+
+Raises the same errors as @code{xml_parse_tree()}.
+@end deftypefun
+
+@node Statistics,  , Extensions, Builtins
 @comment  node-name,  next,  previous,  up
 @subsection Server Statistics and Miscellaneous Information
 
-@deftypefun str server_version ()
-Returns a string giving the version number of the running MOO server.
+@deftypefun str server_version ([str @var{option}])
+When called with no arguments, returns a string giving the version number of the
+running MOO server (e.g., @code{"1.9.0alpha"}).
+
+As of version 1.9.0alpha, @code{server_version()} accepts an optional argument to query
+specific information about the server configuration and capabilities:
+
+@itemize @bullet
+@item
+@code{server_version("features")} returns a list of strings naming the enabled
+optional extensions.  Possible values include @code{"regexp"}, @code{"unicode"},
+@code{"waifs"}, and @code{"xml"}.
+
+@item
+@code{server_version("options/}@var{NAME}@code{")} returns the value of the compile-time
+option @var{NAME} (e.g., @code{"options/BITWISE_OPERATORS"}), or @code{E_INVARG} if
+the option does not exist.  Returns @code{1} for defined boolean options, @code{0}
+for undefined options, or the actual value for options with specific values.
+
+@item
+@code{server_version("config/args")} returns the command-line arguments that were
+passed to @code{./configure} when the server was built.
+@end itemize
+
+Examples:
+
+@example
+server_version()                            @result{}   "1.9.0alpha"
+server_version("features")                  @result{}   @{"regexp", "unicode", "xml"@}
+server_version("options/BITWISE_OPERATORS") @result{}   1
+server_version("options/INT_TYPE_BITSIZE")  @result{}   64
+server_version("config/args")               @result{}   "--enable-unicode --enable-xml"
+@end example
+
+@quotation
+@emph{Fine point:} The extension framework introduced in version 1.9.0alpha allows server
+administrators to compile in optional features.  Programs can use
+@code{server_version("features")} to detect which features are available and adapt
+their behavior accordingly.
+@end quotation
 @end deftypefun
 
 @need 1500 
@@ -5448,11 +5766,22 @@ number as its value.  If so, then the server looks for a variety of other
 properties on that @code{$server_options} object and, if they exist, uses their
 values to control how the server operates.
 
+@quotation
+@emph{Note:} For some options, you will need to call @code{load_server_options()}
+in order for any changes in their values to take effect.  See the description of
+that function for more information on this.
+@end quotation
+
 The specific properties searched for are each described in the appropriate
 section below, but here is a brief list of all of the relevant properties for
 ease of reference:
 
 @table @code
+@item address_lookup_timeout
+The maximum number of seconds to wait for a reverse DNS (PTR record) lookup on
+incoming network connections.  Set to 0 to disable reverse DNS lookups entirely
+If not set, defaults to the value of
+@code{name_lookup_timeout}.  (Added in version 1.9.0alpha)
 @item bg_seconds
 The number of seconds allotted to background tasks.
 @item bg_ticks
@@ -5461,7 +5790,9 @@ The number of ticks allotted to background tasks.
 The maximum number of seconds to allow an un-logged-in in-bound connection to
 remain open.
 @item default_flush_command
-The initial setting of each new connection's flush command.
+The initial setting of each new connection's flush command.  As of version 1.9.0alpha,
+this property is listener-specific; it is checked on the listener object first,
+and only if not found there is @code{$server_options} consulted.
 @item fg_seconds
 The number of seconds allotted to foreground tasks.
 @item fg_ticks
@@ -5469,10 +5800,15 @@ The number of ticks allotted to foreground tasks.
 @item max_stack_depth
 The maximum number of levels of nested verb calls.
 @item name_lookup_timeout
-The maximum number of seconds to wait for a network hostname/address lookup.
+The maximum number of seconds to wait for a forward DNS (A record) hostname lookup
+for outbound network connections.  As of version 1.9.0alpha, this property no longer
+controls reverse DNS lookups for inbound connections; use @code{address_lookup_timeout}
+instead.
 @item outbound_connect_timeout
 The maximum number of seconds to wait for an outbound network connection to
 successfully open.
+@item queued_task_limit
+The default maximum number of tasks a player can have queued.
 @item protect_@var{property}
 Restrict reading of built-in @var{property} to wizards.
 @item protect_@var{function}
