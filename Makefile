@@ -1,7 +1,7 @@
 MI_OPTS = --fill-column 79 --no-split
 
 OUT = ProgrammersManual.info ProgrammersManual.txt \
-      html/ProgrammersManual_toc.html \
+      html/index.html ProgrammersManual.html \
       ProgrammersManual.ps.gz ProgrammersManual.dvi.gz \
       ProgrammersManual.pdf
 
@@ -44,7 +44,17 @@ ProgrammersManual.pdf: ProgrammersManual.texinfo
 	texi2pdf --clean --batch ProgrammersManual.texinfo
 
 
-html: html/ProgrammersManual_toc.html
+html: html/index.html
+html/index.html: ProgrammersManual.texinfo common.css
+	rm -rf html
+	makeinfo --html --css-include=common.css --output=html ProgrammersManual.texinfo
+
+html-single: ProgrammersManual.html
+ProgrammersManual.html: ProgrammersManual.texinfo common.css
+	makeinfo --html --no-split --css-include=common.css --output=ProgrammersManual.html ProgrammersManual.texinfo
+
+# Old target using deprecated texi2html
+html-old: html/ProgrammersManual_toc.html
 html/ProgrammersManual_toc.html: ProgrammersManual.texinfo
 	rm -rf html
 	texi2html -menu -split section -init_file t2hinit.pl -subdir html -top_file index.html -expand info ProgrammersManual.texinfo
@@ -71,7 +81,7 @@ clean:
 
 distclean: clean
 	rm -f ProgrammersManual.dvi* ProgrammersManual.p* ProgrammersManual.i*
-	rm -f ProgrammersManual.txt
+	rm -f ProgrammersManual.txt ProgrammersManual.html
 	rm -rf html
 
 # $Log$
